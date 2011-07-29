@@ -18,7 +18,7 @@ Grid.prototype = {
   is_alive: function(x,y) {
     return this.cells[x + ',' + y] || false;
   },
-  neighbour_count_for: function(x, y, func) {
+  neighbour_count_for: function(x, y) {
     var count = 0;
     if (this.is_alive(x-1,y-1)) { count += 1 }
     if (this.is_alive(x-1,y)) { count += 1 }
@@ -36,7 +36,7 @@ function run_tests() {
   test("grid can add cell", function() {
     var grid = new Grid();
     grid.add_cell(1,1);
-    ok(grid.cells["1,1"], 'should have cell at 1,1');
+    ok(grid.is_alive(1,1\), 'should have cell at 1,1');
   });
   
   test("cell has a neighbour", function() {
