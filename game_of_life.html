@@ -20,16 +20,49 @@ Grid.prototype = {
   },
   neighbour_count_for: function(x, y) {
     var count = 0;
-    
+
+    this.each_alive_neighbour(x, y, function(x, y) {
+      count += 1;
+    });
+    return count;
+  },
+  each_neighbour: function(x, y, func) {
     for (var i=-1; i <= 1; i++) {
       for (var j=-1; j <= 1; j++) {
         if (!(i == 0 && j == 0)) {
-          if (this.is_alive(x + i, y + j))
-            count += 1
+          func(x + i, y + j);
         }
       };
     };
-    return count;
+  },
+  each_alive_neighbour: function(x, y, func) {
+    var self = this;
+    this.each_neighbour(x, y, function(a, b) {
+      if (self.is_alive(a, b))
+        func(x, y);
+    });
+  },
+  will_live: function(x, y) {
+    var count = this.neighbour_count_for(x,y);
+    return (this.is_alive(x, y) && (count == 2)) || count == 3;
+  },
+  evolve: function() {
+    var new_grid = new Grid();
+    var self = this;
+    for (cell in this.cells) {
+      var point = cell.split(',');
+      var x = parseInt(point[0]);
+      var y = parseInt(point[1]);
+      if (this.will_live(x, y)) {
+        new_grid.add_cell(x, y);
+      }
+      this.each_neighbour(x, y, function(a, b) {
+        if (self.will_live(a, b)) {
+          new_grid.add_cell(a, b);
+        }
+      });
+    }
+    return new_grid;
   }
 }
 
@@ -47,12 +80,187 @@ function run_tests() {
     equal(grid.neighbour_count_for(1,1), 1, 'should have one neighbour');
   });
   
+  test("cell with 2 neighbours will live", function() {
+    var grid = new Grid();
+    grid.add_cell(1,1);
+    grid.add_cell(1,2);
+    grid.add_cell(1,0);
+    ok(grid.will_live(1,1), 'cell 1,1 should live to next generation');
+  });
+  
+  test("cell with 1 neighbour dies", function() {
+    var grid = new Grid();
+    grid.add_cell(1,1);
+    grid.add_cell(1,2);
+    equal(grid.will_live(1,1), false, 'should die');
+  });
+  
+  test("dead cell should come to life if it has 3 live neighbours", function() {
+    var grid = new Grid();
+    grid.add_cell(1,1);
+    grid.add_cell(2,1);
+    grid.add_cell(2,2);
+    equal(grid.will_live(1,2), true, 'should spawn');
+    equal(grid.will_live(3,1), false, 'should spawn');
+  });
+  
+  test("evolution of a spinner", function() {
+    var grid = new Grid();
+    grid.add_cell(1,1);
+    grid.add_cell(2,1);
+    grid.add_cell(3,1);
+    grid = grid.evolve();
+    ok(grid.is_alive(2,0));
+    ok(grid.is_alive(2,1));
+    ok(grid.is_alive(2,2));
+  });
 }
 
+function draw(from_grid, to_grid) {
+  canvas.width = ViewPortSize * ViewMultiplication;
+  
+  // add new cells
+  for (cell in to_grid.cells) {
+    var point = cell.split(',');
+    var x = parseInt(point[0]);// % ViewPortSize;
+    var y = parseInt(point[1]);// % ViewPortSize;
+    if (x > 0 && x < ViewPortSize && y > 0 && y < ViewPortSize)
+      context.fillRect(x * ViewMultiplication, y * ViewMultiplication, ViewMultiplication, ViewMultiplication);
+  }
+  
+}
+ViewPortSize = 200;
+ViewMultiplication = 5;
+AnimationSpeed = 60;
+var canvas, context;
 
+function run() {
+  var grid = new Grid();
+  
+  make_spinner(grid, 1, 1);
+  make_glider(grid, 5, 10);
+  make_glider(grid, 10, 10);
+  make_glider(grid, 40, 30);
+  make_toad(grid, 110, 100);
+  make_spaceship(grid, 20, 60);
+  make_glider(grid, 40, 40);
+  
+  
+  draw(new Grid(), grid);
+  
+  setTimeout(function() {
+    iterate(grid)
+  }, AnimationSpeed);
+}
+
+function rand(n) {
+  return Math.round(Math.random() * n);
+}
+function run2() {
+  var grid = new Grid();
+
+  for (var i=0; i < 30; i++) {
+    make_spinner(grid, rand(ViewPortSize), rand(ViewPortSize));
+    make_glider(grid, rand(ViewPortSize), rand(ViewPortSize));
+    make_toad(grid, rand(ViewPortSize), rand(ViewPortSize));
+    make_spaceship(grid, rand(ViewPortSize), rand(ViewPortSize));
+    // make_glider(grid, rand(ViewPortSize), rand(ViewPortSize));
+  };
+  
+  
+  draw(new Grid(), grid);
+  
+  setTimeout(function() {
+    iterate(grid)
+  }, AnimationSpeed);
+  
+}
+
+function run3() {
+  var grid = new Grid();
+
+  for (var i=0; i < 1600; i++) {
+    grid.add_cell(rand(ViewPortSize), rand(ViewPortSize));
+  };
+  
+  draw(new Grid(), grid);
+  
+  setTimeout(function() {
+    iterate(grid)
+  }, AnimationSpeed);
+  
+}
+function run4() {
+  var grid = new Grid();
+  var x,y;
+  var dim = 6;
+  for (var i=0; i < (dim * dim) / 2; i++) {
+    x = rand(dim)+100;
+    y = rand(dim)+100;
+    grid.add_cell(x, y);
+    console.log('x: ' + x + ', y: ' + y );
+  };
+  
+  draw(new Grid(), grid);
+  
+  
+  setTimeout(function() {
+    iterate(grid)
+  }, 2000);
+  
+}
+
+function iterate(grid) {
+  var new_grid;
+  new_grid = grid.evolve();
+  draw(grid, new_grid);
+  setTimeout(function() {
+    iterate(new_grid);
+  }, AnimationSpeed);
+}
+
+function make_spaceship(grid, x, y) {
+  grid.add_cell(x + 1, y + 1);
+  grid.add_cell(x + 4, y + 1);
+  grid.add_cell(x + 5, y + 2);
+  grid.add_cell(x + 1, y + 3);
+  grid.add_cell(x + 5, y + 3);
+  grid.add_cell(x + 2, y + 4);
+  grid.add_cell(x + 3, y + 4);
+  grid.add_cell(x + 4, y + 4);
+  grid.add_cell(x + 5, y + 4);
+}
+
+function make_glider(grid, x,y) {
+  grid.add_cell(x + 2, y + 1);
+  grid.add_cell(x + 3, y + 2);
+  grid.add_cell(x + 1, y + 3);
+  grid.add_cell(x + 2, y + 3);
+  grid.add_cell(x + 3, y + 3);
+}
+
+function make_spinner(grid, x, y) {
+  grid.add_cell(x + 1,y + 1);
+  grid.add_cell(x + 2,y + 1);
+  grid.add_cell(x + 3,y + 1);
+}
+
+function make_toad(grid, x, y) {
+  grid.add_cell(x + 2, y + 1);
+  grid.add_cell(x + 3, y + 1);
+  grid.add_cell(x + 4, y + 1);
+  grid.add_cell(x + 1, y + 2);
+  grid.add_cell(x + 2, y + 2);
+  grid.add_cell(x + 3, y + 2);
+}
 
 $(document).ready(function(){
-  run_tests();
+  // run_tests();
+  
+  canvas = document.getElementById("output");
+  context = canvas.getContext("2d");
+  
+  run();
 });
   
   </script>
@@ -64,5 +272,7 @@ $(document).ready(function(){
  <h2 id="qunit-userAgent"></h2>
  <ol id="qunit-tests"></ol>
  <div id="qunit-fixture">test markup, will be hidden</div>
+ <canvas id="output" width="1000" height="1000"></canvas>
+ &lt;-- woo
 </body>
 </html>
